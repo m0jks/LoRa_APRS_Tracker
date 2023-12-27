@@ -103,7 +103,7 @@ namespace STATION_Utils {
         if (thirdNearTracker == "") {
             thirdNearTracker = fourthNearTracker;
             fourthNearTracker = "";
-        } 
+        }
         if (secondNearTracker == "") {
             secondNearTracker = thirdNearTracker;
             thirdNearTracker = fourthNearTracker;
@@ -150,7 +150,7 @@ namespace STATION_Utils {
             fourthNearTrackerCallsign = fourthNearTracker.substring(0,fourthNearTracker.indexOf(">"));
             fourthNearTrackerDistance = fourthNearTracker.substring(fourthNearTracker.indexOf(">")+1,fourthNearTracker.indexOf("km"));
             fourthDistance = fourthNearTrackerDistance.toFloat();
-        } 
+        }
 
         if (firstNearTracker == "" && secondNearTracker == "" && thirdNearTracker == "" && fourthNearTracker == "") {
             firstNearTracker = newTrackerInfo;
@@ -162,7 +162,7 @@ namespace STATION_Utils {
                 } else {
                     secondNearTracker = newTrackerInfo;
                 }
-            } else { 
+            } else {
                 if (distance != firstDistance) {
                     firstNearTracker  = newTrackerInfo;
                 }
@@ -179,7 +179,7 @@ namespace STATION_Utils {
                 } else if (distance >= secondDistance) {
                     thirdNearTracker  = newTrackerInfo;
                 }
-            } else {  
+            } else {
                 if (callsign == firstNearTrackerCallsign) {
                     if (distance != firstDistance) {
                         if (distance > secondDistance) {
@@ -198,7 +198,7 @@ namespace STATION_Utils {
                             secondNearTracker = newTrackerInfo;
                         }
                     }
-                }     
+                }
             }
         } else if (firstNearTracker != "" && secondNearTracker != "" && thirdNearTracker != "" && fourthNearTracker == "") {
             if (callsign != firstNearTrackerCallsign && callsign != secondNearTrackerCallsign && callsign != thirdNearTrackerCallsign) {
@@ -217,7 +217,7 @@ namespace STATION_Utils {
                 } else if (distance >= thirdDistance) {
                     fourthNearTracker = newTrackerInfo;
                 }
-            } else {  
+            } else {
                 if (callsign == firstNearTrackerCallsign) {
                     if (distance != firstDistance) {
                         if (distance > thirdDistance) {
@@ -256,7 +256,7 @@ namespace STATION_Utils {
                             thirdNearTracker  = newTrackerInfo;
                         }
                     }
-                }  
+                }
             }
         } else if (firstNearTracker != "" && secondNearTracker != "" && thirdNearTracker != "" && fourthNearTracker != "") {
             if (callsign != firstNearTrackerCallsign && callsign != secondNearTrackerCallsign && callsign != thirdNearTrackerCallsign && callsign != fourthNearTrackerCallsign) {
@@ -344,7 +344,7 @@ namespace STATION_Utils {
                             firstNearTracker  = newTrackerInfo;
                         }
                     }
-                }       
+                }
             }
         }
     }
@@ -406,7 +406,7 @@ namespace STATION_Utils {
             if (updateCounter >= Config.sendCommentAfterXBeacons) {
                 packet += currentBeacon->comment;
                 updateCounter = 0;
-            } 
+            }
         }
         if (Config.sendBatteryInfo) {
             String batteryVoltage = POWER_Utils::getBatteryInfoVoltage();
@@ -423,7 +423,7 @@ namespace STATION_Utils {
         }
         show_display("<<< TX >>>", "", packet,100);
         LoRa_Utils::sendNewPacket(packet);
-        
+
         if (smartBeaconValue) {
             lastTxLat       = gps.location.lat();
             lastTxLng       = gps.location.lng();
@@ -463,7 +463,7 @@ namespace STATION_Utils {
             } else {
                 logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "New Frequency Index saved to SPIFFS");
             }
-        } 
+        }
         fileIndex.close();
     }
 

@@ -1,15 +1,15 @@
 /*__________________________________________________________________________________________________________________________________
 
-██╗      ██████╗ ██████╗  █████╗      █████╗ ██████╗ ██████╗ ███████╗    ████████╗██████╗  █████╗  ██████╗██╗  ██╗███████╗██████╗ 
+██╗      ██████╗ ██████╗  █████╗      █████╗ ██████╗ ██████╗ ███████╗    ████████╗██████╗  █████╗  ██████╗██╗  ██╗███████╗██████╗
 ██║     ██╔═══██╗██╔══██╗██╔══██╗    ██╔══██╗██╔══██╗██╔══██╗██╔════╝    ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗
 ██║     ██║   ██║██████╔╝███████║    ███████║██████╔╝██████╔╝███████╗       ██║   ██████╔╝███████║██║     █████╔╝ █████╗  ██████╔╝
 ██║     ██║   ██║██╔══██╗██╔══██║    ██╔══██║██╔═══╝ ██╔══██╗╚════██║       ██║   ██╔══██╗██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗
 ███████╗╚██████╔╝██║  ██║██║  ██║    ██║  ██║██║     ██║  ██║███████║       ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║
 ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚══════╝       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 
-                                                    Ricardo Guzman - CA2RXU 
+                                                    Ricardo Guzman - CA2RXU
                                           https://github.com/richonguzman/LoRa_APRS_Tracker
-                                            (donations : http://paypal.me/richonguzman)                                                                       
+                                            (donations : http://paypal.me/richonguzman)
 __________________________________________________________________________________________________________________________________*/
 
 #include <BluetoothSerial.h>
@@ -150,7 +150,7 @@ void setup() {
     if (Config.notification.ledTx) pinMode(Config.notification.ledTxPin, OUTPUT);
     if (Config.notification.ledMessage) pinMode(Config.notification.ledMessagePin, OUTPUT);
     if (Config.notification.ledFlashlight) pinMode(Config.notification.ledFlashlightPin, OUTPUT);
-    
+
     STATION_Utils::loadIndex(0);
     STATION_Utils::loadIndex(1);
     String workingFreq = "    LoRa Freq [";
@@ -176,7 +176,7 @@ void setup() {
     currentLoRaType = &Config.loraTypes[loraIndex];
     LoRa_Utils::setup();
     BME_Utils::setup();
-    
+
     ackNumberSend = random(1,999);
 
     WiFi.mode(WIFI_OFF);
@@ -212,7 +212,7 @@ void loop() {
         miceActive = Config.validateMicE(currentBeacon->micE);
     }
     STATION_Utils::checkSmartBeaconValue();
-    
+
     if (ackNumberSend >= 999) ackNumberSend = 1;
 
     POWER_Utils::batteryManager();
@@ -267,5 +267,16 @@ void loop() {
         GPS_Utils::checkStartUpFrames();
         MENU_Utils::showOnScreen();
         refreshDisplayTime = millis();
+    }
+
+    if (Config.secondsToSleepWhenNoMotion > 0 && sendStandingUpdate && !bluetoothConnected && !POWER_Utils::isUsbConnected()) {
+      logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Module goes to sleep");
+      BLUETOOTH_Utils::end();
+      POWER_Utils::shutdown();
+      esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+      esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+      esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+      esp_sleep_enable_timer_wakeup(Config.secondsToSleepWhenNoMotion * 1000 * 1000);
+      esp_deep_sleep_start();
     }
 }

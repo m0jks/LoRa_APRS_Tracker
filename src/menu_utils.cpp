@@ -154,7 +154,7 @@ namespace MENU_Utils {
                         show_display("WRITE_MSG>", "  - APRSThursday -", "MSG -> " + messageText, "", "", "<Back   (0" + String(messageText.length()) + ")   Enter>");
                     } else {
                         show_display("WRITE_MSG>", "  - APRSThursday -", "MSG -> " + messageText, "", "", "<Back   (" + String(messageText.length()) + ")   Enter>");
-                    }     
+                    }
                 } else {
                     show_display("WRITE_MSG>", "---  MSG TO LONG! ---", " -> " + messageText, "", "", "<Back   (" + String(messageText.length()) + ")");
                 }
@@ -168,7 +168,7 @@ namespace MENU_Utils {
                         show_display("WRITE_MSG>", "  - APRSThursday -", "MSG -> " + messageText, "", "", "<Back   (0" + String(messageText.length()) + ")   Enter>");
                     } else {
                         show_display("WRITE_MSG>", "  - APRSThursday -", "MSG -> " + messageText, "", "", "<Back   (" + String(messageText.length()) + ")   Enter>");
-                    }     
+                    }
                 } else {
                     show_display("WRITE_MSG>", "---  MSG TO LONG! ---", " -> " + messageText, "", "", "<Back   (" + String(messageText.length()) + ")");
                 }
@@ -180,7 +180,7 @@ namespace MENU_Utils {
                 show_display("APRS Thu._", "  Join APRSThursday", "  Check In", "  Unsubscribe", "> KeepSubscribed+12h", lastLine);
                 break;
 
-//////////            
+//////////
             case 20:    // 2.Configuration ---> Callsign
                 show_display("_CONFIG___", "  Power Off", "> Change Callsign ", "  Change Frequency", "  Display",lastLine);
                 break;
@@ -300,10 +300,10 @@ namespace MENU_Utils {
                         coursePacketDec = ' ' + coursePacketDec;
                     }
                     courseSpeedAltitude += coursePacketDec;
-                    
+
                     double distanceKm = TinyGPSPlus::distanceBetween(gps.location.lat(), gps.location.lng(), lastReceivedPacket.latitude, lastReceivedPacket.longitude) / 1000.0;
                     double courseTo   = TinyGPSPlus::courseTo(gps.location.lat(), gps.location.lng(), lastReceivedPacket.latitude, lastReceivedPacket.longitude);
-                    
+
                     if (lastReceivedPacket.path.length()>14) {
                         pathDec = "P:" + lastReceivedPacket.path;
                     } else {
@@ -411,7 +411,7 @@ namespace MENU_Utils {
             case 5051:    // WINLINK: Delete Mail //
                 show_display("WLNK___DEL", "", "   DELETE MAIL N."  + winlinkMailNumber, "", "<Back          Enter>");
                 break;
-            
+
             case 5060:    // WINLINK: Alias Menu //
                 show_display("WLNK__MENU", "  Delete Mail  (K#)", "> Alias Menu", "  Log Out", "  Write Mail", lastLine);
                 break;
@@ -483,7 +483,7 @@ namespace MENU_Utils {
                         show_display("_COMMENT_>", "Send this Comment in","the next GPS Beacon :", messageText, "", "<Back   (0" + String(messageText.length()) + ")   Enter>");
                     } else {
                         show_display("_COMMENT_>", "Send this Comment in","the next GPS Beacon :", messageText, "", "<Back   (" + String(messageText.length()) + ")   Enter>");
-                    }     
+                    }
                 } else {
                     show_display("_COMMENT_>", " Comment is to long! ", " -> " + messageText, "", "", "<Back   (" + String(messageText.length()) + ")");
                 }
@@ -528,7 +528,7 @@ namespace MENU_Utils {
                             thirdRowMainMenu += "UK]";
                         }
                     }
-                    
+
                     for(int i = thirdRowMainMenu.length(); i < 18; i++) {
                         thirdRowMainMenu += " ";
                     }

@@ -16,19 +16,19 @@ extern bool             bluetoothConnected;
 extern bool             bluetoothActive;
 
 namespace BLUETOOTH_Utils {
-    String serialReceived;
-    bool shouldSendToLoRa = false;
-    bool useKiss = false;
+  String serialReceived;
+  bool shouldSendToLoRa = false;
+  bool useKiss = false;
 
-    void setup() {
-        if (!bluetoothActive) {
-            btStop();
-            esp_bt_controller_disable();
-            logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "BT controller disabled");
-            return;
-        }
+  void setup() {
+    if (!bluetoothActive) {
+      btStop();
+      esp_bt_controller_disable();
+      logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "BT controller disabled");
+      return;
+    }
 
-        serialReceived.reserve(255);
+    serialReceived.reserve(255);
 
         SerialBT.register_callback(BLUETOOTH_Utils::bluetoothCallback);
         SerialBT.onData(BLUETOOTH_Utils::getData); // callback instead of while to avoid RX buffer limit when NMEA data received
@@ -127,16 +127,19 @@ namespace BLUETOOTH_Utils {
         shouldSendToLoRa = false;
     }
 
-    void sendPacket(const String& packet) {
-        if (bluetoothActive && !packet.isEmpty()) {
-            if (useKiss) {
-                logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "BT RX Kiss", "%s", serialReceived.c_str());
-                SerialBT.println(encode_kiss(packet));
-            } else {
-                logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "BT RX TNC2", "%s", serialReceived.c_str());
-                SerialBT.println(packet);
-            }
-        }
+  void sendPacket(const String& packet) {
+    if (bluetoothActive && !packet.isEmpty() && bluetoothConnected) {
+      if (useKiss) {
+        logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "BT RX Kiss", "%s", serialReceived.c_str());
+        SerialBT.println(encode_kiss(packet));
+      } else {
+        logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "BT RX TNC2", "%s", serialReceived.c_str());
+        SerialBT.println(packet);
+      }
     }
-  
+  }
+  void end() {
+    btStop();
+    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "BT disabled");
+  }
 }

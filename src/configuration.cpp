@@ -102,6 +102,7 @@ void Configuration::readFile(fs::FS &fs, const char *fileName) {
     bluetoothType                 = data["other"]["bluetoothType"].as<int>();
     bluetoothActive               = data["other"]["bluetoothActive"].as<bool>();
     disableGPS                    = data["other"]["disableGPS"].as<bool>();
+    secondsToSleepWhenNoMotion    = data["other"]["secondsToSleepWhenNoMotion"].as<int>();
 
     configFile.close();
 }

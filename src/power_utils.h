@@ -20,8 +20,10 @@ namespace POWER_Utils {
     bool isBatteryConnected();
     void obtainBatteryInfo();
     void batteryManager();
+    bool isUsbConnected();
 
     void activateMeasurement();
+    void deactivateMeasurement();
 
     void activateGPS();
     void deactivateGPS();
@@ -34,7 +36,7 @@ namespace POWER_Utils {
 
     void lowerCpuFrequency();
     void shutdown();
-  
+
 }
 
 #endif

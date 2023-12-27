@@ -51,7 +51,7 @@ namespace POWER_Utils {
         #if defined(HELTEC_V3_GPS) || defined(ESP32_C3_DIY_LoRa_GPS)
         int adc_value = analogRead(BATTERY_PIN);
         double voltage = (adc_value * 3.3) / 4095.0;
-        double inputDivider = (1.0 / (390.0 + 100.0)) * 100.0;  // The voltage divider is a 390k + 100k resistor in series, 100k on the low side. 
+        double inputDivider = (1.0 / (390.0 + 100.0)) * 100.0;  // The voltage divider is a 390k + 100k resistor in series, 100k on the low side.
         return (voltage / inputDivider) + 0.3; // Yes, this offset is excessive, but the ADC on the ESP32s3 is quite inaccurate and noisy. Adjust to own measurements.
         #endif
     }
@@ -157,6 +157,15 @@ namespace POWER_Utils {
         #endif
     }
 
+    void deactivateMeasurement() {
+#if defined(HAS_AXP192) || defined(HAS_AXP2101)
+      PMU.disableBattDetection();
+      PMU.disableVbusVoltageMeasure();
+      PMU.disableBattVoltageMeasure();
+      PMU.disableSystemVoltageMeasure();
+#endif
+    }
+
     void activateGPS() {
         #ifdef HAS_AXP192
         PMU.setLDO3Voltage(3300);
@@ -164,7 +173,9 @@ namespace POWER_Utils {
         #endif
         #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
         PMU.setALDO3Voltage(3300);
-        PMU.enableALDO3(); 
+        PMU.enableALDO3();
+        PMU.setButtonBatteryChargeVoltage(3300);
+        PMU.enableButtonBatteryCharge();
         #endif
         #if defined(TTGO_T_Beam_S3_SUPREME_V3)
         PMU.setALDO4Voltage(3300);
@@ -313,7 +324,7 @@ namespace POWER_Utils {
             logger.log(logging::LoggerLevel::LOGGER_LEVEL_ERROR, "AXP2101", "init failed!");
         }
         #endif
-    
+
         #ifdef HAS_AXP2101
         activateLoRa();
         if (disableGPS) {
@@ -350,4 +361,12 @@ namespace POWER_Utils {
         #endif
     }
 
+    bool isUsbConnected() {
+      #if defined(TTGO_T_Beam_V1_0) || defined(TTGO_T_Beam_V1_0_SX1268)
+            return isCharging();
+      #endif
+      #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
+            return PMU.getChargerStatus() != XPOWERS_AXP2101_CHG_STOP_STATE;
+      #endif
+    }
 }

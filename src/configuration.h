@@ -83,14 +83,14 @@ public:
 class Configuration {
 public:
 
-    std::vector<Beacon>     beacons;  
+    std::vector<Beacon>     beacons;
     Display                 display;
     Winlink                 winlink;
     BME                     bme;
     Notification            notification;
     std::vector<LoraType>   loraTypes;
     Ptt                     ptt;
-    
+
     bool    simplifiedTrackerMode;
     int     sendCommentAfterXBeacons;
     String  path;
@@ -103,6 +103,7 @@ public:
     int     bluetoothType;
     bool    bluetoothActive;
     bool    disableGPS;
+    uint64_t secondsToSleepWhenNoMotion;
 
     Configuration();
     void validateConfigFile(String currentBeaconCallsign);
