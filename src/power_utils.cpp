@@ -237,7 +237,7 @@ namespace POWER_Utils {
             PMU.enableDC1();
             PMU.setProtectedChannel(XPOWERS_DCDC3);
             PMU.disableIRQ(XPOWERS_AXP192_ALL_IRQ);
-            PMU.enableIRQ(XPOWERS_AXP2101_VBUS_INSERT_IRQ);
+            PMU.enableIRQ(XPOWERS_AXP192_VBUS_INSERT_IRQ);
             PMU.clearIrqStatus();
             PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_4HZ);
         }
@@ -373,7 +373,7 @@ namespace POWER_Utils {
 
     bool isUsbConnected() {
       #if defined(TTGO_T_Beam_V1_0) || defined(TTGO_T_Beam_V1_0_SX1268)
-            return isCharging();
+            return PMU.isVbusIn();
       #endif
       #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
             return PMU.isVbusIn();
