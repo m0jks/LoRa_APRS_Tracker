@@ -159,6 +159,7 @@ namespace POWER_Utils {
 
     void deactivateMeasurement() {
 #if defined(HAS_AXP192) || defined(HAS_AXP2101)
+      PMU.disableTemperatureMeasure();
       PMU.disableBattDetection();
       PMU.disableVbusVoltageMeasure();
       PMU.disableBattVoltageMeasure();
@@ -174,8 +175,6 @@ namespace POWER_Utils {
         #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
         PMU.setALDO3Voltage(3300);
         PMU.enableALDO3();
-        PMU.setButtonBatteryChargeVoltage(3300);
-        PMU.enableButtonBatteryCharge();
         #endif
         #if defined(TTGO_T_Beam_S3_SUPREME_V3)
         PMU.setALDO4Voltage(3300);
@@ -189,9 +188,11 @@ namespace POWER_Utils {
         #endif
         #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
         PMU.disableALDO3();
+        PMU.disableButtonBatteryCharge();
         #endif
         #if defined(TTGO_T_Beam_S3_SUPREME_V3)
         PMU.disableALDO4();
+        PMU.disableButtonBatteryCharge();
         #endif
     }
 
@@ -236,6 +237,9 @@ namespace POWER_Utils {
             PMU.enableDC1();
             PMU.setProtectedChannel(XPOWERS_DCDC3);
             PMU.disableIRQ(XPOWERS_AXP192_ALL_IRQ);
+            PMU.enableIRQ(XPOWERS_AXP2101_VBUS_INSERT_IRQ);
+            PMU.clearIrqStatus();
+            PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_4HZ);
         }
         return result;
         #endif
@@ -258,6 +262,9 @@ namespace POWER_Utils {
             PMU.setButtonBatteryChargeVoltage(3300);
             PMU.enableButtonBatteryCharge();
             PMU.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+            PMU.enableIRQ(XPOWERS_AXP2101_VBUS_INSERT_IRQ);
+            PMU.clearIrqStatus();
+            PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_4HZ);
         }
         return result;
         #endif
@@ -279,6 +286,9 @@ namespace POWER_Utils {
             PMU.setButtonBatteryChargeVoltage(3300);
             PMU.enableButtonBatteryCharge();
             PMU.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+            PMU.enableIRQ(XPOWERS_AXP2101_VBUS_INSERT_IRQ);
+            PMU.clearIrqStatus();
+            PMU.setChargingLedMode(XPOWERS_CHG_LED_BLINK_4HZ);
         }
         return result;
         #endif
@@ -366,7 +376,11 @@ namespace POWER_Utils {
             return isCharging();
       #endif
       #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
-            return PMU.getChargerStatus() != XPOWERS_AXP2101_CHG_STOP_STATE;
+            return PMU.isVbusIn();
       #endif
+    }
+
+    uint64_t getIrqPinAsMask() {
+      return (uint64_t) 1 << (IRQ_PIN - 1);
     }
 }

@@ -49,7 +49,7 @@ BluetoothSerial                     SerialBT;
 OneButton userButton                = OneButton(BUTTON_PIN, true, true);
 #endif
 
-String      versionDate             = "2024.03.22";
+String      versionDate             = "2024.03.22-F4HVV";
 
 int         myBeaconsIndex          = 0;
 int         myBeaconsSize           = Config.beacons.size();
@@ -131,6 +131,8 @@ String      winlinkAliasComplete    = "";
 APRSPacket                          lastReceivedPacket;
 
 logging::Logger                     logger;
+
+void deepSleep();
 
 void setup() {
     Serial.begin(115200);
@@ -270,13 +272,22 @@ void loop() {
     }
 
     if (Config.secondsToSleepWhenNoMotion > 0 && sendStandingUpdate && !bluetoothConnected && !POWER_Utils::isUsbConnected()) {
-      logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Module goes to sleep");
-      BLUETOOTH_Utils::end();
-      POWER_Utils::shutdown();
-      esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
-      esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
-      esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-      esp_sleep_enable_timer_wakeup(Config.secondsToSleepWhenNoMotion * 1000 * 1000);
-      esp_deep_sleep_start();
+      deepSleep();
     }
+
+    delay(10);
+}
+
+void deepSleep() {
+  logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Module goes to sleep");
+  POWER_Utils::disableChgLed();
+  POWER_Utils::deactivateMeasurement();
+  POWER_Utils::deactivateLoRa();
+  POWER_Utils::deactivateGPS();
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+  esp_sleep_enable_ext1_wakeup(POWER_Utils::getIrqPinAsMask(), ESP_EXT1_WAKEUP_ALL_LOW); // Wake up when USB inserted
+  esp_sleep_enable_timer_wakeup(Config.secondsToSleepWhenNoMotion * 1000 * 1000);
+  esp_deep_sleep_start();
 }
