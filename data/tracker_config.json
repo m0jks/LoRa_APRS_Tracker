@@ -1,7 +1,7 @@
 {
 	"beacons": [
 		{
-			"callsign": "NOCALL-7",
+			"callsign": "CA2RXU-5",
 			"symbol": "[",
 			"overlay": "/",
 			"micE": "",
@@ -19,7 +19,7 @@
 			}			
 		},
 		{
-			"callsign": "NOCALL-7",
+			"callsign": "CA2RXU-5",
 			"symbol": ">",
 			"overlay": "/",
 			"micE": "",
@@ -37,7 +37,7 @@
 			}
 		},
 		{
-			"callsign": "NOCALL-7",
+			"callsign": "CA2RXU-5",
 			"symbol": "b",
 			"overlay": "/",
 			"micE": "",
@@ -71,7 +71,7 @@
 		"standingUpdateTime": 15,
 		"sendAltitude": true,
 		"sendBatteryInfo": false,
-		"bluetoothType": 1,
+		"bluetoothType": 0,
 		"bluetoothActive": true,
 		"disableGPS": false
 	},
