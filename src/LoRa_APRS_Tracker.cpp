@@ -1,15 +1,15 @@
 /*__________________________________________________________________________________________________________________________________
 
-██╗      ██████╗ ██████╗  █████╗      █████╗ ██████╗ ██████╗ ███████╗    ████████╗██████╗  █████╗  ██████╗██╗  ██╗███████╗██████╗
+██╗      ██████╗ ██████╗  █████╗      █████╗ ██████╗ ██████╗ ███████╗    ████████╗██████╗  █████╗  ██████╗██╗  ██╗███████╗██████╗ 
 ██║     ██╔═══██╗██╔══██╗██╔══██╗    ██╔══██╗██╔══██╗██╔══██╗██╔════╝    ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝██╔════╝██╔══██╗
 ██║     ██║   ██║██████╔╝███████║    ███████║██████╔╝██████╔╝███████╗       ██║   ██████╔╝███████║██║     █████╔╝ █████╗  ██████╔╝
 ██║     ██║   ██║██╔══██╗██╔══██║    ██╔══██║██╔═══╝ ██╔══██╗╚════██║       ██║   ██╔══██╗██╔══██║██║     ██╔═██╗ ██╔══╝  ██╔══██╗
 ███████╗╚██████╔╝██║  ██║██║  ██║    ██║  ██║██║     ██║  ██║███████║       ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗███████╗██║  ██║
 ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝    ╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚══════╝       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 
-                                                    Ricardo Guzman - CA2RXU
+                                                    Ricardo Guzman - CA2RXU 
                                           https://github.com/richonguzman/LoRa_APRS_Tracker
-                                            (donations : http://paypal.me/richonguzman)
+                                            (donations : http://paypal.me/richonguzman)                                                                       
 __________________________________________________________________________________________________________________________________*/
 
 #include <BluetoothSerial.h>
@@ -49,12 +49,12 @@ BluetoothSerial                     SerialBT;
 OneButton userButton                = OneButton(BUTTON_PIN, true, true);
 #endif
 
-String      versionDate             = "2024.03.22-F4HVV";
+String      versionDate             = "2024.03.28-F4HVV";
 
-int         myBeaconsIndex          = 0;
+uint8_t     myBeaconsIndex          = 0;
 int         myBeaconsSize           = Config.beacons.size();
 Beacon      *currentBeacon          = &Config.beacons[myBeaconsIndex];
-int         loraIndex               = 0;
+uint8_t     loraIndex               = 0;
 int         loraIndexSize           = Config.loraTypes.size();
 LoraType    *currentLoRaType        = &Config.loraTypes[loraIndex];
 
@@ -71,7 +71,7 @@ uint32_t    displayTime             = millis();
 uint32_t    refreshDisplayTime      = millis();
 
 bool        sendUpdate              = true;
-int         updateCounter           = Config.sendCommentAfterXBeacons;
+uint8_t     updateCounter           = Config.sendCommentAfterXBeacons;
 bool	    sendStandingUpdate      = false;
 bool        statusState             = true;
 uint32_t    statusTime              = millis();
@@ -82,7 +82,7 @@ String      BLEToLoRaPacket         = "";
 
 bool        messageLed              = false;
 uint32_t    messageLedTime          = millis();
-int         lowBatteryPercent       = 21;
+uint8_t     lowBatteryPercent       = 21;
 
 uint32_t    lastTelemetryTx         = millis();
 uint32_t    telemetryTx             = millis();
@@ -101,7 +101,7 @@ bool        symbolAvailable         = true;
 
 uint32_t    bmeLastReading          = -60000;
 
-int         screenBrightness        = 1;
+uint8_t     screenBrightness        = 1;
 bool        keyboardConnected       = false;
 bool        keyDetected             = false;
 uint32_t    keyboardTime            = millis();
@@ -120,7 +120,7 @@ bool        smartBeaconValue        = true;
 int         ackNumberSend;
 uint32_t    ackTime                 = millis();
 
-int         winlinkStatus           = 0;
+uint8_t     winlinkStatus           = 0;
 String      winlinkMailNumber       = "_?";
 String      winlinkAddressee        = "";
 String      winlinkSubject          = "";
@@ -152,7 +152,7 @@ void setup() {
     if (Config.notification.ledTx) pinMode(Config.notification.ledTxPin, OUTPUT);
     if (Config.notification.ledMessage) pinMode(Config.notification.ledMessagePin, OUTPUT);
     if (Config.notification.ledFlashlight) pinMode(Config.notification.ledFlashlightPin, OUTPUT);
-
+    
     STATION_Utils::loadIndex(0);
     STATION_Utils::loadIndex(1);
     String workingFreq = "    LoRa Freq [";
@@ -178,7 +178,7 @@ void setup() {
     currentLoRaType = &Config.loraTypes[loraIndex];
     LoRa_Utils::setup();
     BME_Utils::setup();
-
+    
     ackNumberSend = random(1,999);
 
     WiFi.mode(WIFI_OFF);
@@ -214,7 +214,7 @@ void loop() {
         miceActive = Config.validateMicE(currentBeacon->micE);
     }
     STATION_Utils::checkSmartBeaconValue();
-
+    
     if (ackNumberSend >= 999) ackNumberSend = 1;
 
     POWER_Utils::batteryManager();
