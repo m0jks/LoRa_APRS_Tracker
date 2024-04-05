@@ -130,4 +130,10 @@ namespace BLE_Utils {
         }
     }
 
+    void end() {
+      BLEDevice::deinit();
+      pServer->stopAdvertising();
+      logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "BLE", "Disabled");
+      bluetoothConnected = false;
+    }
 }

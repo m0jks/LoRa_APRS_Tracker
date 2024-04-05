@@ -102,6 +102,7 @@ public:
     bool    sendBatteryInfo;
     int     bluetoothType;
     bool    bluetoothActive;
+    bool    disableBluetoothIfNotUsedOnBattery;
     bool    disableGPS;
     uint64_t secondsToSleepWhenNoMotion;
 

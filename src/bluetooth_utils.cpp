@@ -1,11 +1,12 @@
-#include <TinyGPS++.h>
-#include <esp_bt.h>
 #include "bluetooth_utils.h"
-#include "configuration.h"
 #include "KISS_TO_TNC2.h"
-#include "lora_utils.h"
+#include "configuration.h"
 #include "display.h"
 #include "logger.h"
+#include "lora_utils.h"
+#include <TinyGPS++.h>
+#include <esp_bt.h>
+#include <esp_bt_main.h>
 
 
 extern Configuration    Config;
@@ -13,7 +14,6 @@ extern BluetoothSerial  SerialBT;
 extern logging::Logger  logger;
 extern TinyGPSPlus      gps;
 extern bool             bluetoothConnected;
-extern bool             bluetoothActive;
 
 namespace BLUETOOTH_Utils {
   String serialReceived;
@@ -21,13 +21,6 @@ namespace BLUETOOTH_Utils {
   bool useKiss = false;
 
   void setup() {
-    if (!bluetoothActive) {
-      btStop();
-      esp_bt_controller_disable();
-      logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "BT controller disabled");
-      return;
-    }
-
     serialReceived.reserve(255);
 
         SerialBT.register_callback(BLUETOOTH_Utils::bluetoothCallback);
@@ -128,7 +121,7 @@ namespace BLUETOOTH_Utils {
     }
 
   void sendPacket(const String& packet) {
-    if (bluetoothActive && !packet.isEmpty() && bluetoothConnected) {
+    if (!packet.isEmpty() && bluetoothConnected) {
       if (useKiss) {
         logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "BT RX Kiss", "%s", serialReceived.c_str());
         SerialBT.println(encode_kiss(packet));
@@ -139,7 +132,8 @@ namespace BLUETOOTH_Utils {
     }
   }
   void end() {
-    btStop();
-    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "BT disabled");
+    SerialBT.end();
+    bluetoothConnected = false;
+    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Bluetooth", "Disabled");
   }
 }

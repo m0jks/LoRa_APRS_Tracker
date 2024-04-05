@@ -73,6 +73,7 @@
 		"sendBatteryInfo": false,
 		"bluetoothType": 1,
 		"bluetoothActive": true,
+		"disableBluetoothIfNotUsedOnBattery": false,
 		"disableGPS": false,
 		"secondsToSleepWhenNoMotion": 0
 	},

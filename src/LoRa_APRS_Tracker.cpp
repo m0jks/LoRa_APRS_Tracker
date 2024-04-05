@@ -49,7 +49,7 @@ BluetoothSerial                     SerialBT;
 OneButton userButton                = OneButton(BUTTON_PIN, true, true);
 #endif
 
-String      versionDate             = "2024.03.28-F4HVV";
+String      versionDate             = "2024.04.05-F4HVV";
 
 uint8_t     myBeaconsIndex          = 0;
 int         myBeaconsSize           = Config.beacons.size();
@@ -76,9 +76,10 @@ bool	    sendStandingUpdate      = false;
 bool        statusState             = true;
 uint32_t    statusTime              = millis();
 bool        bluetoothConnected      = false;
-bool        bluetoothActive         = Config.bluetoothActive;
+bool        bluetoothActive         = false;
 bool        sendBleToLoRa           = false;
 String      BLEToLoRaPacket         = "";
+uint32_t    bluetoothDisableTimer   = millis();
 
 bool        messageLed              = false;
 uint32_t    messageLedTime          = millis();
@@ -132,6 +133,7 @@ APRSPacket                          lastReceivedPacket;
 
 logging::Logger                     logger;
 
+void checkBluetoothState();
 void deepSleep();
 
 void setup() {
@@ -183,13 +185,8 @@ void setup() {
 
     WiFi.mode(WIFI_OFF);
     logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "WiFi controller stopped");
-    if (Config.bluetoothType==0) {
-        BLE_Utils::setup();
-    } else {
-        #ifdef HAS_BT_CLASSIC
-        BLUETOOTH_Utils::setup();
-        #endif
-    }
+
+    checkBluetoothState();
 
     if (!Config.simplifiedTrackerMode) {
         #ifdef HAS_BUTTON
@@ -239,13 +236,8 @@ void loop() {
     MSG_Utils::ledNotification();
     Utils::checkFlashlight();
     STATION_Utils::checkListenedTrackersByTimeAndDelete();
-    if (Config.bluetoothType == 0) {
-        BLE_Utils::sendToLoRa();
-    } else {
-        #ifdef HAS_BT_CLASSIC
-        BLUETOOTH_Utils::sendToLoRa();
-        #endif
-    }
+
+    checkBluetoothState();
 
     int currentSpeed = (int) gps.speed.kmph();
 
@@ -278,12 +270,56 @@ void loop() {
     delay(10);
 }
 
+void checkBluetoothState() {
+  if (!Config.bluetoothActive) {
+    return;
+  }
+
+  if (bluetoothActive) {
+    if (bluetoothConnected) {
+      bluetoothDisableTimer = millis();
+
+      if (Config.bluetoothType == 0) {
+        BLE_Utils::sendToLoRa();
+      } else {
+#ifdef HAS_BT_CLASSIC
+        BLUETOOTH_Utils::sendToLoRa();
+#endif
+      }
+    } else if (Config.disableBluetoothIfNotUsedOnBattery && !POWER_Utils::isUsbConnected()
+               && millis() - bluetoothDisableTimer >= 30000) {
+      logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Bluetooth", "Disabled because we are on battery without any connection");
+      if (Config.bluetoothType == 0) {
+        BLE_Utils::end();
+      } else {
+#ifdef HAS_BT_CLASSIC
+        BLUETOOTH_Utils::end();
+#endif
+      }
+      bluetoothActive = false;
+    }
+  } else if (!Config.disableBluetoothIfNotUsedOnBattery || POWER_Utils::isUsbConnected()) { // No rule or (UsbOnly and no usb connected)
+    if (Config.bluetoothType == 0) {
+      BLE_Utils::setup();
+    } else {
+#ifdef HAS_BT_CLASSIC
+      BLUETOOTH_Utils::setup();
+#endif
+    }
+    bluetoothActive = true;
+  }
+}
+
 void deepSleep() {
   logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Module goes to sleep");
   POWER_Utils::disableChgLed();
   POWER_Utils::deactivateMeasurement();
   POWER_Utils::deactivateLoRa();
   POWER_Utils::deactivateGPS();
+  if (bluetoothActive) {
+    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Bluetooth", "Disabled");
+    btStop(); // We don't need to stop BLE or BT Classic because at wake up there is a reset
+  }
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
