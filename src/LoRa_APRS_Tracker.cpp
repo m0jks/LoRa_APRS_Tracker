@@ -134,7 +134,7 @@ APRSPacket                          lastReceivedPacket;
 logging::Logger                     logger;
 
 void checkBluetoothState();
-void deepSleep();
+void checkDeepSleepNeeded();
 
 void setup() {
     Serial.begin(115200);
@@ -252,6 +252,7 @@ void loop() {
             GPS_Utils::calculateHeadingDelta(currentSpeed);
         }
         STATION_Utils::checkStandingUpdateTime();
+        checkDeepSleepNeeded();
     }
     STATION_Utils::checkSmartBeaconState();
     if (sendUpdate && gps_loc_update) STATION_Utils::sendBeacon("GPS");
@@ -262,12 +263,6 @@ void loop() {
         MENU_Utils::showOnScreen();
         refreshDisplayTime = millis();
     }
-
-    if (Config.secondsToSleepWhenNoMotion > 0 && sendStandingUpdate && !bluetoothConnected && !POWER_Utils::isUsbConnected()) {
-      deepSleep();
-    }
-
-    delay(10);
 }
 
 void checkBluetoothState() {
@@ -310,7 +305,14 @@ void checkBluetoothState() {
   }
 }
 
-void deepSleep() {
+void checkDeepSleepNeeded() {
+  if (Config.secondsToSleepWhenNoMotion <= 0 // Sleep not activated
+      || !sendStandingUpdate  // We are moving so can't sleep
+      || bluetoothConnected  // Device connected on Bluetooth so can't sleep
+      || POWER_Utils::isUsbConnected()) { // USB connected so don't need to sleep
+    return;
+  }
+
   logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Module goes to sleep");
   POWER_Utils::disableChgLed();
   POWER_Utils::deactivateMeasurement();
