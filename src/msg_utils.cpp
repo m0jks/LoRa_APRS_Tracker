@@ -245,10 +245,24 @@ namespace MSG_Utils {
 
     void processOutputBuffer() {
         uint32_t lastOutputBufferTx = millis() - lastMsgRxTime;     // si paso X tiempo de ultima Msg-Rx
-        
-    /*void processOutputBuffer(): // esto es solo para mensajes !!!!
-        if paso suficiente tiempo de ultima recepcion de mensaje (PARA MI!!!) (revisar) {
-            if outputBuffer.size() > 0 {
+        if (!outputMessagesBuffer.empty() && lastOutputBufferTx >= 4500) {
+            // revisar buffer[0] si tiene ack
+            // es ack???
+            if (ack) {
+                unit32-t lastPacketTx = millis() - lastTxTime;
+                if (lastPacketTx > 7 * 1000) {            // no enviar un mensaje antes de 7 segundos del ultimo gps.
+
+
+
+                }
+            } else {
+                // agregar a otro
+            }
+
+            
+    /*
+        -if paso suficiente tiempo de ultima recepcion de mensaje (PARA MI!!!) (revisar) {
+            -if outputBuffer.size() > 0 {
                 if outputBuffer[0] no es ack {
                     si lastTxTime > X {
                         envio outputBuffer[0]
@@ -273,8 +287,7 @@ namespace MSG_Utils {
                 }
             }
         }
-        */        
-        if (!outputMessagesBuffer.empty() && lastOutputBufferTx >= 4500) {
+        */
             sendMessage(0, outputMessagesBuffer[0].substring(0, outputMessagesBuffer[0].indexOf(",")), outputMessagesBuffer[0].substring(outputMessagesBuffer[0].indexOf(",") + 1));
             outputMessagesBuffer.erase(outputMessagesBuffer.begin());
             //lastMsgRxTime = millis(); // ?????
@@ -322,7 +335,8 @@ namespace MSG_Utils {
                     }
                     if (lastReceivedPacket.message.indexOf("ping") == 0 || lastReceivedPacket.message.indexOf("Ping") == 0 || lastReceivedPacket.message.indexOf("PING") == 0) {
                         lastMsgRxTime = millis();
-                        delay(100);
+                        //delay(100);
+                        // agregar a buffer!!!
                         sendMessage(0, lastReceivedPacket.sender, "pong, 73!");
                     }
                     if (lastReceivedPacket.sender == "CA2RXU-15" && lastReceivedPacket.message.indexOf("WX") == 0) {    // WX = WeatherReport
@@ -359,6 +373,7 @@ namespace MSG_Utils {
                             String winlinkChallenge = lastReceivedPacket.message.substring(lastReceivedPacket.message.indexOf("[")+1,lastReceivedPacket.message.indexOf("]"));
                             //Serial.println("the challenge is " + winlinkChallenge);
                             WINLINK_Utils::processWinlinkChallenge(winlinkChallenge);
+                            // controlar en proceso anterior tirar al outputMessagesBuffer tambien!
                             lastMsgRxTime = millis();
                             winlinkStatus = 3;
                             menuDisplay = 501;
@@ -373,6 +388,7 @@ namespace MSG_Utils {
                             menuDisplay = 5000;
                         } */else if (winlinkStatus == 3 && winlinkAckAnswer.toInt() == ackNumberSend) {
                             logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Winlink","---> Challenge Reception ACK");
+                            lastMsgRxTime = millis();
                             winlinkStatus = 4;
                             menuDisplay = 502;
                         } else if (lastReceivedPacket.message.indexOf("Login valid for") > 0) {
