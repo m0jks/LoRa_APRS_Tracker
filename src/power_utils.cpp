@@ -380,7 +380,8 @@ namespace POWER_Utils {
       #endif
     }
 
-    uint64_t getIrqPinAsMask() {
-      return (uint64_t) 1 << (IRQ_PIN - 1);
+    uint64_t getIrqPinMask() {
+      PMU.clearIrqStatus();
+      return pow(2, IRQ_PIN);
     }
 }

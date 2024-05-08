@@ -252,9 +252,9 @@ void loop() {
             GPS_Utils::calculateHeadingDelta(currentSpeed);
         }
         STATION_Utils::checkStandingUpdateTime();
-        checkDeepSleepNeeded();
     }
     STATION_Utils::checkSmartBeaconState();
+    checkDeepSleepNeeded();
     if (sendUpdate && gps_loc_update) STATION_Utils::sendBeacon("GPS");
     if (gps_time_update) STATION_Utils::checkSmartBeaconInterval(currentSpeed);
   
@@ -307,7 +307,7 @@ void checkBluetoothState() {
 
 void checkDeepSleepNeeded() {
   if (Config.secondsToSleepWhenNoMotion <= 0 // Sleep not activated
-      || !sendStandingUpdate  // We are moving so can't sleep
+      || lastTx < Config.standingUpdateTime * 60 * 1000 // A trame has been sent so there is movement or Kiss
       || bluetoothConnected  // Device connected on Bluetooth so can't sleep
       || POWER_Utils::isUsbConnected()) { // USB connected so don't need to sleep
     return;
@@ -319,13 +319,14 @@ void checkDeepSleepNeeded() {
   POWER_Utils::deactivateLoRa();
   POWER_Utils::deactivateGPS();
   if (bluetoothActive) {
-    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Bluetooth", "Disabled");
     btStop(); // We don't need to stop BLE or BT Classic because at wake up there is a reset
+    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Bluetooth", "Disabled");
   }
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-  esp_sleep_enable_ext1_wakeup(POWER_Utils::getIrqPinAsMask(), ESP_EXT1_WAKEUP_ALL_LOW); // Wake up when USB inserted
+  esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
+  esp_sleep_enable_ext1_wakeup(POWER_Utils::getIrqPinMask(), ESP_EXT1_WAKEUP_ALL_LOW); // Wake up when USB inserted
   esp_sleep_enable_timer_wakeup(Config.secondsToSleepWhenNoMotion * 1000 * 1000);
   esp_deep_sleep_start();
 }

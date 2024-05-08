@@ -21,7 +21,7 @@ namespace POWER_Utils {
     void obtainBatteryInfo();
     void batteryManager();
     bool isUsbConnected();
-    uint64_t getIrqPinAsMask();
+    uint64_t getIrqPinMask();
 
     void activateMeasurement();
     void deactivateMeasurement();
