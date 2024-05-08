@@ -107,7 +107,7 @@ public:
     uint64_t secondsToSleepWhenNoMotion;
 
     Configuration();
-    void validateConfigFile(String currentBeaconCallsign);
+    bool validateConfigFile(String currentBeaconCallsign);
     bool validateMicE(String currentBeaconMicE);
 
 private:

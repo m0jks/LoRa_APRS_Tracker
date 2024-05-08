@@ -19,7 +19,6 @@ ________________________________________________________________________________
 #include <logger.h>
 #include <WiFi.h>
 #include <vector>
-#include <deque>
 #include "APRSPacketLib.h"
 #include "notification_utils.h"
 #include "bluetooth_utils.h"
@@ -45,11 +44,11 @@ TinyGPSPlus                         gps;
 #ifdef HAS_BT_CLASSIC
 BluetoothSerial                     SerialBT;
 #endif
-#ifdef HAS_BUTTON
+#ifdef BUTTON_PIN
 OneButton userButton                = OneButton(BUTTON_PIN, true, true);
 #endif
 
-String      versionDate             = "2024.04.05-F4HVV";
+String      versionDate             = "2024.05.07-F4HVV";
 
 uint8_t     myBeaconsIndex          = 0;
 int         myBeaconsSize           = Config.beacons.size();
@@ -63,7 +62,8 @@ int         menuDisplay             = 100;
 int         messagesIterator        = 0;
 std::vector<String>                 loadedAPRSMessages;
 std::vector<String>                 loadedWLNKMails;
-std::deque<String>                  outputBufferPackets;
+std::vector<String>                 outputMessagesBuffer;
+std::vector<String>                 outputAckRequestBuffer;
 
 bool        displayEcoMode          = Config.display.ecoMode;
 bool        displayState            = true;
@@ -118,8 +118,12 @@ bool        miceActive              = false;
 
 bool        smartBeaconValue        = true;
 
-int         ackNumberSend;
-uint32_t    ackTime                 = millis();
+int         ackRequestNumber;
+bool        ackRequestState         = false;
+String      ackCallsignRequest      = "";
+String      ackNumberRequest        = "";
+uint32_t    lastMsgRxTime           = millis();
+uint32_t    lastRetryTime           = millis();
 
 uint8_t     winlinkStatus           = 0;
 String      winlinkMailNumber       = "_?";
@@ -128,6 +132,11 @@ String      winlinkSubject          = "";
 String      winlinkBody             = "";
 String      winlinkAlias            = "";
 String      winlinkAliasComplete    = "";
+bool        winlinkCommentState     = false;
+
+bool        wxRequestStatus         = false;
+uint32_t    wxRequestTime           = 0;
+uint32_t    batteryMeasurmentTime   = 0;
 
 APRSPacket                          lastReceivedPacket;
 
@@ -144,36 +153,12 @@ void setup() {
     #endif
 
     POWER_Utils::setup();
-
     setup_display();
-    if (Config.notification.buzzerActive) {
-        pinMode(Config.notification.buzzerPinTone, OUTPUT);
-        pinMode(Config.notification.buzzerPinVcc, OUTPUT);
-        if (Config.notification.bootUpBeep) NOTIFICATION_Utils::start();
-    }
-    if (Config.notification.ledTx) pinMode(Config.notification.ledTxPin, OUTPUT);
-    if (Config.notification.ledMessage) pinMode(Config.notification.ledMessagePin, OUTPUT);
-    if (Config.notification.ledFlashlight) pinMode(Config.notification.ledFlashlightPin, OUTPUT);
-    
+    POWER_Utils::externalPinSetup();
+
     STATION_Utils::loadIndex(0);
     STATION_Utils::loadIndex(1);
-    String workingFreq = "    LoRa Freq [";
-    if (loraIndex == 0) {
-        workingFreq += "Eu]";
-    } else if (loraIndex == 1) {
-        workingFreq += "PL]";
-    } else if (loraIndex == 2) {
-        workingFreq += "UK]";
-    }
-
-    show_display(" LoRa APRS", "      (TRACKER)", workingFreq, "", "Richonguzman / CA2RXU", "      " + versionDate, 4000);
-    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "RichonGuzman (CA2RXU) --> LoRa APRS Tracker/Station");
-    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Version: %s", versionDate);
-
-    if (Config.ptt.active) {
-        pinMode(Config.ptt.io_pin, OUTPUT);
-        digitalWrite(Config.ptt.io_pin, Config.ptt.reverse ? HIGH : LOW);
-    }
+    startupScreen(loraIndex, versionDate);
 
     MSG_Utils::loadNumMessages();
     GPS_Utils::setup();
@@ -181,7 +166,7 @@ void setup() {
     LoRa_Utils::setup();
     BME_Utils::setup();
     
-    ackNumberSend = random(1,999);
+    ackRequestNumber = random(1,999);
 
     WiFi.mode(WIFI_OFF);
     logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "WiFi controller stopped");
@@ -189,7 +174,7 @@ void setup() {
     checkBluetoothState();
 
     if (!Config.simplifiedTrackerMode) {
-        #ifdef HAS_BUTTON
+        #ifdef BUTTON_PIN
         userButton.attachClick(BUTTON_Utils::singlePress);
         userButton.attachLongPressStart(BUTTON_Utils::longPress);
         userButton.attachDoubleClick(BUTTON_Utils::doublePress);
@@ -207,17 +192,18 @@ void setup() {
 void loop() {
     currentBeacon = &Config.beacons[myBeaconsIndex];
     if (statusState) {
-        Config.validateConfigFile(currentBeacon->callsign);
+        if (Config.validateConfigFile(currentBeacon->callsign)) {
+            KEYBOARD_Utils::rightArrow();
+            currentBeacon = &Config.beacons[myBeaconsIndex];
+        }
         miceActive = Config.validateMicE(currentBeacon->micE);
     }
     STATION_Utils::checkSmartBeaconValue();
-    
-    if (ackNumberSend >= 999) ackNumberSend = 1;
 
     POWER_Utils::batteryManager();
 
     if (!Config.simplifiedTrackerMode) {
-        #ifdef HAS_BUTTON
+        #ifdef BUTTON_PIN
         userButton.tick();
         #endif
     }
@@ -225,6 +211,9 @@ void loop() {
     Utils::checkDisplayEcoMode();
 
     if (keyboardConnected) KEYBOARD_Utils::read();
+    #ifdef TTGO_T_DECK_GPS
+    KEYBOARD_Utils::mouseRead();
+    #endif
 
     GPS_Utils::getData();
     bool gps_time_update = gps.time.isUpdated();

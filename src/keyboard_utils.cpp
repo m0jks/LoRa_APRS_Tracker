@@ -12,7 +12,12 @@
 #include "msg_utils.h"
 #include "display.h"
 
-#define CARDKB_ADDR 0x5F    // CARDKB from m5stack.com
+#ifdef TTGO_T_DECK_GPS
+#define KB_ADDR     0x55    // T-Deck internal keyboard (Keyboard Backlight On = ALT + B)
+#else
+#define KB_ADDR     0x5F    // CARDKB from m5stack.com (YEL - SDA / WTH SCL)
+#endif
+
 
 extern Configuration    Config;
 extern Beacon           *currentBeacon;
@@ -48,6 +53,22 @@ extern String           winlinkSubject;
 extern String           winlinkBody;
 extern String           winlinkAlias;
 extern String           winlinkAliasComplete;
+extern bool             winlinkCommentState;
+
+extern std::vector<String>  outputMessagesBuffer;
+
+bool mouseUpState           = 0;
+bool mouseDownState         = 0;
+bool mouseLeftState         = 0;
+bool mouseRightState        = 0;
+int debounceInterval        = 50;
+uint32_t lastDebounceTime   = millis();
+int upCounter               = 0;
+int downCounter             = 0;
+int leftCounter             = 0;
+int rightCounter            = 0;
+int trackBallSensitivity    = 5;
+
 
 namespace KEYBOARD_Utils {
 
@@ -303,13 +324,14 @@ namespace KEYBOARD_Utils {
             displayTime = millis();
             statusState  = true;
             statusTime = millis();
+            winlinkCommentState = false;
             show_display("__ INFO __", "", "  CHANGING CALLSIGN!", "", "-----> " + Config.beacons[myBeaconsIndex].callsign, 2000);
             STATION_Utils::saveIndex(0, myBeaconsIndex);
             if (menuDisplay == 200) {
                 menuDisplay = 20;
             }
-        } else if ((menuDisplay>=1 && menuDisplay<=3) || (menuDisplay>=11 &&menuDisplay<=13) || (menuDisplay>=20 && menuDisplay<=27) || (menuDisplay>=30 && menuDisplay<=31)) {
-            menuDisplay = menuDisplay*10;
+        } else if ((menuDisplay >= 1 && menuDisplay <= 3) || (menuDisplay >= 11 &&menuDisplay <= 13) || (menuDisplay >= 20 && menuDisplay <= 27) || (menuDisplay >= 30 && menuDisplay <= 31)) {
+            menuDisplay = menuDisplay * 10;
         } else if (menuDisplay == 10) {
             MSG_Utils::loadMessagesFromMemory("APRS");
             if (MSG_Utils::warnNoAPRSMessages()) {
@@ -327,21 +349,21 @@ namespace KEYBOARD_Utils {
                 menuDisplay = 1300;
             } else {
                 show_display(" APRS Thu.", "Sending:", "Happy #APRSThursday", "from LoRa Tracker 73!", 2000);
-                MSG_Utils::sendMessage(0, "ANSRVR", "CQ HOTG Happy #APRSThursday from LoRa Tracker 73!");
+                MSG_Utils::addToOutputBuffer(0, "ANSRVR", "CQ HOTG Happy #APRSThursday from LoRa Tracker 73!");
             }
         } else if (menuDisplay == 131) {
             if (keyDetected) {
                 menuDisplay = 1310;
             } else {
                 show_display(" APRS Thu.", "Sending:", "Happy #APRSThursday", "from LoRa Tracker 73!", 2000);
-                MSG_Utils::sendMessage(0, "APRSPH", "HOTG Happy #APRSThursday from LoRa Tracker 73!");
+                MSG_Utils::addToOutputBuffer(0, "APRSPH" , "HOTG Happy #APRSThursday from LoRa Tracker 73!");
             }
         } else if (menuDisplay == 132) {
             show_display(" APRS Thu.", "", "   Unsubscribe", "   from APRS Thursday", 2000);
-            MSG_Utils::sendMessage(0, "ANSRVR", "U HOTG");
+            MSG_Utils::addToOutputBuffer(0, "ANSRVR", "U HOTG");
         } else if (menuDisplay == 133) {
             show_display(" APRS Thu.", "", "  Keep Subscribed" ,"  for 12hours more", 2000);
-            MSG_Utils::sendMessage(0, "ANSRVR", "K HOTG");
+            MSG_Utils::addToOutputBuffer(0, "ANSRVR", "K HOTG");
         }
 
         else if (menuDisplay == 210) {
@@ -374,7 +396,7 @@ namespace KEYBOARD_Utils {
 
         else if (menuDisplay == 4) {
             logger.log(logging::LoggerLevel::LOGGER_LEVEL_DEBUG, "Loop", "%s", "wrl");
-            MSG_Utils::sendMessage(0, "CA2RXU-15", "wrl");
+            MSG_Utils::addToOutputBuffer(0, "CA2RXU-15", "wrl");
         }
 
         else if (menuDisplay == 5) {
@@ -392,16 +414,16 @@ namespace KEYBOARD_Utils {
         } else if (menuDisplay == 52) {
             menuDisplay = 50111;
         } else if (menuDisplay == 53) {
-            if (gps.location.lat() != 0.0) {
-                String packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, currentBeacon->overlay, APRSPacketLib::encondeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "GPS"));
-                packet += "winlink";
-                show_display("<<< TX >>>", "", packet,100);
-                LoRa_Utils::sendNewPacket(packet);
+            if (winlinkCommentState) {
+                winlinkCommentState = false;
+                show_display("_WINLINK_>", "", "  WLNK COMMENTs OFF!", 2000);
             } else {
-                show_display("___INFO___", "", " WAITING FOR GPS FIX", 2000);
+                winlinkCommentState = true;
+                show_display("_WINLINK_>", "", "  WLNK COMMENTs ON!", 2000);
             }
         } else if (menuDisplay == 5000) {
-            MSG_Utils::sendMessage(1, "WLNK-1", "L");
+            // reemplazar con buffer
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "L");
         } else if (menuDisplay == 5010) {
             menuDisplay = 50100;
         } else if (menuDisplay == 50100) {
@@ -439,14 +461,14 @@ namespace KEYBOARD_Utils {
         } else if (menuDisplay == 5062) {
             menuDisplay = 50620;
         } else if (menuDisplay == 5063) {
-            MSG_Utils::sendMessage(1, "WLNK-1", "AL");
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "AL");
         } else if (menuDisplay == 5070) {
-            MSG_Utils::sendMessage(1, "WLNK-1", "B");
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "B");
             menuDisplay = 5;
         } else if (menuDisplay == 5080) {
             menuDisplay = 5081;
         } else if (menuDisplay == 5084) {
-            MSG_Utils::sendMessage(1, "WLNK-1", "/EX");
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "/EX");
             winlinkAddressee = "";
             winlinkSubject = "";
             winlinkBody = "";
@@ -546,15 +568,15 @@ namespace KEYBOARD_Utils {
                     messageText = messageText.substring(0, 67);
                 }
                 if (menuDisplay == 111) {
-                    MSG_Utils::sendMessage(0, messageCallsign, messageText);
+                    MSG_Utils::addToOutputBuffer(0, messageCallsign, messageText);
                     menuDisplay = 11;
                 } else if (menuDisplay == 1300) {
                     messageCallsign = "ANSRVR";
-                    MSG_Utils::sendMessage(0, messageCallsign, "CQ HOTG " + messageText);
+                    MSG_Utils::addToOutputBuffer(0, messageCallsign, "CQ HOTG " + messageText);
                     menuDisplay = 130;
                 } else if (menuDisplay == 1310) {
                     messageCallsign = "APRSPH";
-                    MSG_Utils::sendMessage(0, messageCallsign, "HOTG " + messageText);
+                    MSG_Utils::addToOutputBuffer(0, messageCallsign, "HOTG " + messageText);
                     menuDisplay = 131;
                 }
                 messageCallsign = "";
@@ -577,11 +599,11 @@ namespace KEYBOARD_Utils {
         } else if ((menuDisplay == 5021 || menuDisplay == 5031 || menuDisplay == 5041 || menuDisplay == 5051) && key == 8) {
             winlinkMailNumber = "_?";
         } else if (menuDisplay == 5021 && key == 13 && winlinkMailNumber != "_?") {
-            MSG_Utils::sendMessage(1, "WLNK-1", "R" + winlinkMailNumber);
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "R" + winlinkMailNumber);
             winlinkMailNumber = "_?";
             menuDisplay = 5020;
         } else if (menuDisplay == 5031 && key == 13 && winlinkMailNumber != "_?") {
-            MSG_Utils::sendMessage(1, "WLNK-1", "Y" + winlinkMailNumber);
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "Y" + winlinkMailNumber);
             winlinkMailNumber = "_?";
             menuDisplay = 5083;
         } else if (menuDisplay == 5041 && key == 13 && winlinkMailNumber != "_?") {
@@ -594,7 +616,7 @@ namespace KEYBOARD_Utils {
                 winlinkAddressee += key;
             } else if (key == 13 && winlinkAddressee.length() > 0) {
                 winlinkAddressee.trim();
-                MSG_Utils::sendMessage(1, "WLNK-1", "F" + winlinkMailNumber + " " + winlinkAddressee);
+                MSG_Utils::addToOutputBuffer(1, "WLNK-1", "F" + winlinkMailNumber + " " + winlinkAddressee);
                 winlinkMailNumber = "_?";
                 winlinkAddressee = "";
                 menuDisplay = 5040;
@@ -605,7 +627,7 @@ namespace KEYBOARD_Utils {
                 winlinkAddressee = "";
             }
         } else if (menuDisplay == 5051 && key == 13 && winlinkMailNumber !="_?") {
-            MSG_Utils::sendMessage(1, "WLNK-1", "K" + winlinkMailNumber);
+            MSG_Utils::addToOutputBuffer(1, "WLNK-1", "K" + winlinkMailNumber);
             winlinkMailNumber = "_?";
             menuDisplay = 5050;
         } else if (menuDisplay == 50610) {
@@ -631,7 +653,7 @@ namespace KEYBOARD_Utils {
                 winlinkAliasComplete += key;
             } else if (key == 13 && winlinkAliasComplete.length()>= 1) {
                 winlinkAliasComplete.trim();
-                MSG_Utils::sendMessage(1, "WLNK-1", "A " + winlinkAlias + "=" + winlinkAliasComplete);
+                MSG_Utils::addToOutputBuffer(1, "WLNK-1", "A " + winlinkAlias + "=" + winlinkAliasComplete);
                 winlinkAlias = "";
                 winlinkAliasComplete = "";
                 menuDisplay = 5061;
@@ -649,7 +671,7 @@ namespace KEYBOARD_Utils {
                 winlinkAlias += key;
             } else if (key == 13 && winlinkAlias.length()>= 1) {
                 winlinkAlias.trim();
-                MSG_Utils::sendMessage(1, "WLNK-1", "A " + winlinkAlias + "=");
+                MSG_Utils::addToOutputBuffer(1, "WLNK-1", "A " + winlinkAlias + "=");
                 winlinkAlias = "";
                 menuDisplay = 5062;
             } else if (key == 8) {
@@ -681,7 +703,7 @@ namespace KEYBOARD_Utils {
                 winlinkSubject += key;
             } else if (key == 13 && winlinkSubject.length() > 0) {
                 winlinkSubject.trim();
-                MSG_Utils::sendMessage(1, "WLNK-1", "SP " + winlinkAddressee + " " + winlinkSubject);
+                MSG_Utils::addToOutputBuffer(1, "WLNK-1", "SP " + winlinkAddressee + " " + winlinkSubject);
                 menuDisplay = 5083;
             } else if (key == 8) {
                 winlinkSubject = winlinkSubject.substring(0, winlinkSubject.length() - 1);
@@ -697,7 +719,7 @@ namespace KEYBOARD_Utils {
                 winlinkBody += key;
             } else if (key == 13 && winlinkBody.length() <= 67) {
                 winlinkBody.trim();
-                MSG_Utils::sendMessage(1, "WLNK-1", winlinkBody);
+                MSG_Utils::addToOutputBuffer(1, "WLNK-1", winlinkBody);
                 menuDisplay = 5084;
             } else if (key == 8) {
                 winlinkBody = winlinkBody.substring(0, winlinkBody.length() - 1);
@@ -715,7 +737,7 @@ namespace KEYBOARD_Utils {
                 if (messageText.length() > 67) {
                     messageText = messageText.substring(0, 67);
                 }
-                String packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, currentBeacon->overlay, APRSPacketLib::encondeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "GPS"));
+                String packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, currentBeacon->overlay, APRSPacketLib::encodeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "GPS"));
                 packet += messageText;
                 show_display("<<< TX >>>", "", packet,100);
                 LoRa_Utils::sendNewPacket(packet);       
@@ -739,13 +761,70 @@ namespace KEYBOARD_Utils {
             rightArrow();
         }
     }
-      
+
+    void clearTrackballCounter() {
+        upCounter       = 0;
+        downCounter     = 0;
+        leftCounter     = 0;
+        rightCounter    = 0;
+    }
+
+    void mouseRead() {
+        #ifdef TTGO_T_DECK_GPS
+        int ballUp      = digitalRead(TrackBallUp);
+        int ballDown    = digitalRead(TrackBallDown);
+        int ballLeft    = digitalRead(TrackBallLeft);
+        int ballRight   = digitalRead(TrackBallRight);
+
+        if (!digitalRead(TrackBallCenter)) {
+            processPressedKey(13);
+        } else if (ballUp != mouseUpState && ballDown == mouseDownState && ballLeft == mouseLeftState && ballRight == mouseRightState) {
+            if (millis() - lastDebounceTime > debounceInterval) {
+                lastDebounceTime = millis();
+                mouseUpState = ballUp;
+                upCounter++;
+            }
+        } else if (ballDown != mouseDownState && ballUp == mouseUpState && ballLeft == mouseLeftState && ballRight == mouseRightState) {
+            if (millis() - lastDebounceTime > debounceInterval) {
+                lastDebounceTime = millis();
+                mouseDownState = ballDown;
+                downCounter++;
+            }
+        } else if (ballLeft != mouseLeftState && ballUp == mouseUpState && ballDown == mouseDownState && ballRight == mouseRightState) {
+            if (millis() - lastDebounceTime > debounceInterval) {
+                lastDebounceTime = millis();
+                mouseLeftState = ballLeft;
+                leftCounter++;
+            }
+        } else if (ballRight != mouseRightState && ballUp == mouseUpState && ballDown == mouseDownState && ballLeft == mouseLeftState) {
+            if (millis() - lastDebounceTime > debounceInterval) {
+                lastDebounceTime = millis();
+                mouseRightState = ballRight;
+                rightCounter++;
+            }
+        }
+        if (upCounter == trackBallSensitivity) {
+            clearTrackballCounter();
+            upArrow();
+        } else if (downCounter == trackBallSensitivity) {
+            clearTrackballCounter();
+            downArrow();
+        } else if (leftCounter == trackBallSensitivity) {
+            clearTrackballCounter();
+            leftArrow();
+        } else if (rightCounter == trackBallSensitivity) {
+            clearTrackballCounter();
+            rightArrow();
+        }
+        #endif
+    }
+
     void read() {
         uint32_t lastKey = millis() - keyboardTime;
         if (lastKey > 30*1000) {
             keyDetected = false;
         }
-        Wire.requestFrom(CARDKB_ADDR, 1);
+        Wire.requestFrom(KB_ADDR, 1);
         while(Wire.available()) {
             char c = Wire.read();
             if (c != 0) {
@@ -760,7 +839,7 @@ namespace KEYBOARD_Utils {
     }
 
     void setup() {
-        Wire.beginTransmission(CARDKB_ADDR);
+        Wire.beginTransmission(KB_ADDR);
         if (Wire.endTransmission() == 0) {
             keyboardConnected = true;
             logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Keyboard Connected to I2C");

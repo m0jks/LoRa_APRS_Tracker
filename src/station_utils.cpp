@@ -41,6 +41,10 @@ extern double               lastTxDistance;
 extern bool                 miceActive;
 extern bool                 smartBeaconValue;
 extern uint8_t              winlinkStatus;
+extern bool                 winlinkCommentState;
+
+extern bool                 wxRequestStatus;
+extern uint32_t             wxRequestTime;
 
 String                      firstNearTracker;
 String                      secondNearTracker;
@@ -103,7 +107,7 @@ namespace STATION_Utils {
         if (thirdNearTracker == "") {
             thirdNearTracker = fourthNearTracker;
             fourthNearTracker = "";
-        }
+        } 
         if (secondNearTracker == "") {
             secondNearTracker = thirdNearTracker;
             thirdNearTracker = fourthNearTracker;
@@ -150,7 +154,7 @@ namespace STATION_Utils {
             fourthNearTrackerCallsign = fourthNearTracker.substring(0, fourthNearTracker.indexOf(">"));
             fourthNearTrackerDistance = fourthNearTracker.substring(fourthNearTracker.indexOf(">") + 1, fourthNearTracker.indexOf("km"));
             fourthDistance = fourthNearTrackerDistance.toFloat();
-        }
+        } 
 
         if (firstNearTracker == "" && secondNearTracker == "" && thirdNearTracker == "" && fourthNearTracker == "") {
             firstNearTracker = newTrackerInfo;
@@ -162,7 +166,7 @@ namespace STATION_Utils {
                 } else {
                     secondNearTracker = newTrackerInfo;
                 }
-            } else {
+            } else { 
                 if (distance != firstDistance) {
                     firstNearTracker  = newTrackerInfo;
                 }
@@ -179,7 +183,7 @@ namespace STATION_Utils {
                 } else if (distance >= secondDistance) {
                     thirdNearTracker  = newTrackerInfo;
                 }
-            } else {
+            } else {  
                 if (callsign == firstNearTrackerCallsign) {
                     if (distance != firstDistance) {
                         if (distance > secondDistance) {
@@ -198,7 +202,7 @@ namespace STATION_Utils {
                             secondNearTracker = newTrackerInfo;
                         }
                     }
-                }
+                }     
             }
         } else if (firstNearTracker != "" && secondNearTracker != "" && thirdNearTracker != "" && fourthNearTracker == "") {
             if (callsign != firstNearTrackerCallsign && callsign != secondNearTrackerCallsign && callsign != thirdNearTrackerCallsign) {
@@ -217,7 +221,7 @@ namespace STATION_Utils {
                 } else if (distance >= thirdDistance) {
                     fourthNearTracker = newTrackerInfo;
                 }
-            } else {
+            } else {  
                 if (callsign == firstNearTrackerCallsign) {
                     if (distance != firstDistance) {
                         if (distance > thirdDistance) {
@@ -256,7 +260,7 @@ namespace STATION_Utils {
                             thirdNearTracker  = newTrackerInfo;
                         }
                     }
-                }
+                }  
             }
         } else if (firstNearTracker != "" && secondNearTracker != "" && thirdNearTracker != "" && fourthNearTracker != "") {
             if (callsign != firstNearTrackerCallsign && callsign != secondNearTrackerCallsign && callsign != thirdNearTrackerCallsign && callsign != fourthNearTrackerCallsign) {
@@ -344,7 +348,7 @@ namespace STATION_Utils {
                             firstNearTracker  = newTrackerInfo;
                         }
                     }
-                }
+                }       
             }
         }
     }
@@ -369,10 +373,13 @@ namespace STATION_Utils {
     }
 
     void checkSmartBeaconValue() {
-        if (winlinkStatus != 0) {
-            smartBeaconValue = false;
-        } else {
+        if (wxRequestStatus && (millis() - wxRequestTime) > 20000) {
+            wxRequestStatus = false;
+        }
+        if(winlinkStatus == 0 && !wxRequestStatus) {
             smartBeaconValue = currentBeacon->smartBeaconState;
+        } else {
+            smartBeaconValue = false;
         }
     }
 
@@ -386,44 +393,55 @@ namespace STATION_Utils {
     }
 
     void sendBeacon(String type) {
-        String packet;
+        String packet, comment;
+        int sendCommentAfterXBeacons;
         if (Config.bme.sendTelemetry && type == "Wx") {
             if (miceActive) {
                 packet = APRSPacketLib::generateMiceGPSBeacon(currentBeacon->micE, currentBeacon->callsign,"_", currentBeacon->overlay, Config.path, gps.location.lat(), gps.location.lng(), gps.course.deg(), gps.speed.knots(), gps.altitude.meters());
             } else {
-                packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, "/", APRSPacketLib::encondeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "Wx"));
+                packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, "/", APRSPacketLib::encodeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "Wx"));
             }
             packet += BME_Utils::readDataSensor("APRS");
         } else {
             if (miceActive) {
                 packet = APRSPacketLib::generateMiceGPSBeacon(currentBeacon->micE, currentBeacon->callsign, currentBeacon->symbol, currentBeacon->overlay, Config.path, gps.location.lat(), gps.location.lng(), gps.course.deg(), gps.speed.knots(), gps.altitude.meters());
             } else {
-                packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, currentBeacon->overlay, APRSPacketLib::encondeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "GPS"));
+                packet = APRSPacketLib::generateGPSBeaconPacket(currentBeacon->callsign, "APLRT1", Config.path, currentBeacon->overlay, APRSPacketLib::encodeGPS(gps.location.lat(),gps.location.lng(), gps.course.deg(), gps.speed.knots(), currentBeacon->symbol, Config.sendAltitude, gps.altitude.feet(), sendStandingUpdate, "GPS"));
             }
         }
-        if (currentBeacon->comment != "") {
-            updateCounter++;
-            if (updateCounter >= Config.sendCommentAfterXBeacons) {
-                packet += currentBeacon->comment;
-                updateCounter = 0;
-            }
+        if (winlinkCommentState) {
+            comment = " winlink";
+            sendCommentAfterXBeacons = 1;
+        } else {
+            comment = currentBeacon->comment;
+            sendCommentAfterXBeacons = Config.sendCommentAfterXBeacons;
         }
         if (Config.sendBatteryInfo) {
             String batteryVoltage = POWER_Utils::getBatteryInfoVoltage();
             String batteryChargeCurrent = POWER_Utils::getBatteryInfoCurrent();
             #if defined(TTGO_T_Beam_V1_0) || defined(TTGO_T_Beam_V1_0_SX1268)
-            packet += " Bat=" + batteryVoltage + "V (" + batteryChargeCurrent + "mA)";
+            comment += " Bat=" + batteryVoltage + "V (" + batteryChargeCurrent + "mA)";
             #endif
             #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
-            packet += " Bat=" + String(batteryVoltage.toFloat()/1000,2) + "V (" + batteryChargeCurrent + "%)";
+            comment += " Bat=" + String(batteryVoltage.toFloat()/1000,2) + "V (" + batteryChargeCurrent + "%)";
             #endif
-            #if defined(HELTEC_V3_GPS)
-            packet += " Bat=" + String(batteryVoltage.toFloat(),2) + "V";
+            #if defined(HELTEC_V3_GPS) || defined(HELTEC_WIRELESS_TRACKER)
+            comment += " Bat=" + String(batteryVoltage.toFloat(),2) + "V";
             #endif
         }
+        if (comment != "") {
+            updateCounter++;
+            if (updateCounter >= sendCommentAfterXBeacons) {
+                packet += comment;
+                updateCounter = 0;
+            }
+        }
+        #ifdef HAS_TFT
+        cleanTFT();
+        #endif
         show_display("<<< TX >>>", "", packet,100);
         LoRa_Utils::sendNewPacket(packet);
-
+        
         if (smartBeaconValue) {
             lastTxLat       = gps.location.lat();
             lastTxLng       = gps.location.lng();
@@ -463,7 +481,7 @@ namespace STATION_Utils {
             } else {
                 logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "New Frequency Index saved to SPIFFS");
             }
-        }
+        } 
         fileIndex.close();
     }
 

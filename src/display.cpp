@@ -1,4 +1,3 @@
-#include <Adafruit_GFX.h>
 #include <logger.h>
 #include <Wire.h>
 #include "custom_characters.h"
@@ -6,6 +5,25 @@
 #include "pins_config.h"
 #include "display.h"
 #include "TimeLib.h"
+
+#ifdef HAS_TFT
+#include <TFT_eSPI.h>
+
+TFT_eSPI tft = TFT_eSPI(); 
+
+#ifdef HELTEC_WIRELESS_TRACKER
+#define bigSizeFont     2
+#define smallSizeFont   1
+#define lineSpacing     9
+#endif
+#ifdef TTGO_T_DECK_GPS
+#define bigSizeFont     4
+#define smallSizeFont   2
+#define lineSpacing     18
+#endif
+
+#else
+#include <Adafruit_GFX.h>
 
 #define ssd1306 //comment this line with "//" when using SH1106 screen instead of SSD1306
 
@@ -18,12 +36,15 @@
 
 #ifdef ssd1306
 #include <Adafruit_SSD1306.h>
+Adafruit_SSD1306 display(128, 64, &Wire, OLED_RST);
 #else
 #include <Adafruit_SH110X.h>
+Adafruit_SH1106G display(128, 64, &Wire, OLED_RST);
+#endif
 #endif
 
-#define SYM_HEIGHT 14
-#define SYM_WIDTH  16
+#define SYMBOL_HEIGHT 14
+#define SYMBOL_WIDTH  16
 
 extern Configuration    Config;
 extern Beacon           *currentBeacon;
@@ -43,19 +64,26 @@ const uint8_t *symbolsAPRS[]  = {runnerSymbol, carSymbol, jeepSymbol, bikeSymbol
 // If your board didn't come with 4 pins OLED Screen and comes with 5 and one of them is RST...
 // Uncomment Next Line (Remember ONLY if your OLED Screen has a RST pin). This is to avoid memory issues.
 //#define OLED_DISPLAY_HAS_RST_PIN
+int lastMenuDisplay = 0;
 
 extern logging::Logger logger;
 
-#ifdef ssd1306
-Adafruit_SSD1306 display(128, 64, &Wire, OLED_RST);
-#else
-Adafruit_SH1106G display(128, 64, &Wire, OLED_RST);
-#endif
+void cleanTFT() {
+    #ifdef HAS_TFT
+    tft.fillScreen(TFT_BLACK);
+    #endif
+}
 
-// cppcheck-suppress unusedFunction
 void setup_display() {
     delay(500);
-    #ifdef OLED_DISPLAY_HAS_RST_PIN // 
+    #ifdef HAS_TFT
+    tft.init();
+    tft.begin();
+    tft.setRotation(1);
+    tft.setTextFont(0);
+    tft.fillScreen(TFT_BLACK);
+    #else    
+    #ifdef OLED_DISPLAY_HAS_RST_PIN
     pinMode(OLED_RST, OUTPUT);
     digitalWrite(OLED_RST, LOW);
     delay(20);
@@ -92,23 +120,35 @@ void setup_display() {
     display.ssd1306_command(screenBrightness);
     #endif
     display.display();
+    #endif
 }
 
-// cppcheck-suppress unusedFunction
 void display_toggle(bool toggle) {
     if (toggle) {
+        #ifdef HAS_TFT
+        digitalWrite(TFT_BL, HIGH);
+        #endif
         #ifdef ssd1306
         display.ssd1306_command(SSD1306_DISPLAYON);
         #endif
     } else {
+        #ifdef HAS_TFT
+        digitalWrite(TFT_BL, LOW);
+        #endif
         #ifdef ssd1306
         display.ssd1306_command(SSD1306_DISPLAYOFF);
         #endif
     }
 }
 
-// cppcheck-suppress unusedFunction
 void show_display(String header, int wait) {
+    #ifdef HAS_TFT
+    cleanTFT();
+    tft.setTextColor(TFT_WHITE,TFT_BLACK);
+    tft.setTextSize(bigSizeFont);
+    tft.setCursor(0, 0);
+    tft.print(header);
+    #else
     display.clearDisplay();
     #ifdef ssd1306
     display.setTextColor(WHITE);
@@ -123,11 +163,21 @@ void show_display(String header, int wait) {
     display.ssd1306_command(screenBrightness);
     #endif
     display.display();
+    #endif
     delay(wait);
 }
 
-// cppcheck-suppress unusedFunction
 void show_display(String header, String line1, int wait) {
+    #ifdef HAS_TFT
+    cleanTFT();
+    tft.setTextColor(TFT_WHITE,TFT_BLACK);
+    tft.setTextSize(bigSizeFont);
+    tft.setCursor(0, 0);
+    tft.print(header);
+    tft.setTextSize(smallSizeFont);
+    tft.setCursor(0, ((lineSpacing * 2) - 2));
+    tft.print(line1);
+    #else
     display.clearDisplay();
     #ifdef ssd1306
     display.setTextColor(WHITE);
@@ -145,11 +195,23 @@ void show_display(String header, String line1, int wait) {
     display.ssd1306_command(screenBrightness);
     #endif
     display.display();
+    #endif
     delay(wait);
 }
 
-// cppcheck-suppress unusedFunction
 void show_display(String header, String line1, String line2, int wait) {
+    #ifdef HAS_TFT
+    cleanTFT();
+    tft.setTextColor(TFT_WHITE,TFT_BLACK);
+    tft.setTextSize(bigSizeFont);
+    tft.setCursor(0, 0);
+    tft.print(header);
+    tft.setTextSize(smallSizeFont);
+    tft.setCursor(0, ((lineSpacing * 2) - 2));
+    tft.print(line1);
+    tft.setCursor(0, ((lineSpacing * 3) - 2));
+    tft.print(line2);
+    #else
     display.clearDisplay();
     #ifdef ssd1306
     display.setTextColor(WHITE);
@@ -169,11 +231,25 @@ void show_display(String header, String line1, String line2, int wait) {
     display.ssd1306_command(screenBrightness);
     #endif
     display.display();
+    #endif
     delay(wait);
 }
 
-// cppcheck-suppress unusedFunction
 void show_display(String header, String line1, String line2, String line3, int wait) {
+    #ifdef HAS_TFT
+    cleanTFT();
+    tft.setTextColor(TFT_WHITE,TFT_BLACK);
+    tft.setTextSize(bigSizeFont);
+    tft.setCursor(0, 0);
+    tft.print(header);
+    tft.setTextSize(smallSizeFont);
+    tft.setCursor(0, ((lineSpacing * 2) - 2));
+    tft.print(line1);
+    tft.setCursor(0, ((lineSpacing * 3) - 2));
+    tft.print(line2);
+    tft.setCursor(0, ((lineSpacing * 4) - 2));
+    tft.print(line3);
+    #else
     display.clearDisplay();
     #ifdef ssd1306
     display.setTextColor(WHITE);
@@ -195,11 +271,27 @@ void show_display(String header, String line1, String line2, String line3, int w
     display.ssd1306_command(screenBrightness);
     #endif
     display.display();
+    #endif
     delay(wait);
 }
 
-// cppcheck-suppress unusedFunction
 void show_display(String header, String line1, String line2, String line3, String line4, int wait) {
+    #ifdef HAS_TFT
+    cleanTFT();
+    tft.setTextColor(TFT_WHITE,TFT_BLACK);
+    tft.setTextSize(bigSizeFont);
+    tft.setCursor(0, 0);
+    tft.print(header);
+    tft.setTextSize(smallSizeFont);
+    tft.setCursor(0, ((lineSpacing * 2) - 2));
+    tft.print(line1);
+    tft.setCursor(0, ((lineSpacing * 3) - 2));
+    tft.print(line2);
+    tft.setCursor(0, ((lineSpacing * 4) - 2));
+    tft.print(line3);
+    tft.setCursor(0, ((lineSpacing * 5) - 2));
+    tft.print(line4);
+    #else
     display.clearDisplay();
     #ifdef ssd1306
     display.setTextColor(WHITE);
@@ -223,11 +315,70 @@ void show_display(String header, String line1, String line2, String line3, Strin
     display.ssd1306_command(screenBrightness);
     #endif
     display.display();
+    #endif
     delay(wait);
 }
 
-// cppcheck-suppress unusedFunction
 void show_display(String header, String line1, String line2, String line3, String line4, String line5, int wait) {
+    #ifdef HAS_TFT
+    if (menuDisplay != lastMenuDisplay) {
+        lastMenuDisplay = menuDisplay;
+        cleanTFT();
+    }
+    //tft.setTextColor(TFT_RED,TFT_BLACK);
+    tft.setTextColor(TFT_WHITE,TFT_BLACK);
+    tft.setTextSize(bigSizeFont);
+    tft.setCursor(0, 0);
+    tft.print(header);
+    tft.setTextSize(smallSizeFont);
+    tft.setCursor(0, ((lineSpacing * 2) - 2));
+    tft.print(line1);
+    tft.setCursor(0, ((lineSpacing * 3) - 2));
+    tft.print(line2);
+    tft.setCursor(0, ((lineSpacing * 4) - 2));
+    tft.print(line3);
+    tft.setCursor(0, ((lineSpacing * 5) - 2));
+    tft.print(line4);
+    tft.setCursor(0, ((lineSpacing *6) - 2));
+    tft.print(line5);
+
+    if (menuDisplay == 0 && Config.display.showSymbol) {
+        int symbol = 100;
+        for (int i = 0; i < symbolArraySize; i++) {
+            if (currentBeacon->symbol == symbolArray[i]) {
+                symbol = i;
+                break;
+            }
+        }
+
+        symbolAvailable = symbol != 100;
+
+        /*
+        * Symbol alternate every 5s
+        * If bluetooth is disconnected or if we are in the first part of the clock, then we show the APRS symbol
+        * Otherwise, we are in the second part of the clock, then we show BT connected
+        */
+        const auto time_now = now();
+        if (!bluetoothConnected || time_now % 10 < 5) {
+            if (symbolAvailable) {
+                #if HELTEC_WIRELESS_TRACKER
+                tft.drawBitmap((TFT_WIDTH - SYMBOL_WIDTH + (128 - TFT_WIDTH)), 0, symbolsAPRS[symbol], SYMBOL_WIDTH, SYMBOL_HEIGHT, TFT_WHITE);//, TFT_RED);
+                #endif
+                #if TTGO_T_DECK_GPS
+                tft.drawBitmap((TFT_WIDTH - SYMBOL_WIDTH), 0, symbolsAPRS[symbol], SYMBOL_WIDTH, SYMBOL_HEIGHT, TFT_WHITE);//, TFT_RED);
+                #endif
+            }
+        } else if (bluetoothConnected) {    // TODO In this case, the text symbol stay displayed due to symbolAvailable false in menu_utils
+            #if HELTEC_WIRELESS_TRACKER
+            tft.drawBitmap((TFT_WIDTH - SYMBOL_WIDTH + (128 - TFT_WIDTH)), 0, bluetoothSymbol, SYMBOL_WIDTH, SYMBOL_HEIGHT, TFT_WHITE);
+            #endif
+            #if TTGO_T_DECK_GPS
+            tft.drawBitmap((TFT_WIDTH - SYMBOL_WIDTH), 0, bluetoothSymbol, SYMBOL_WIDTH, SYMBOL_HEIGHT, TFT_WHITE);
+            #endif
+        }
+    }
+
+    #else
     display.clearDisplay();
     #ifdef ssd1306
     display.setTextColor(WHITE);
@@ -272,14 +423,32 @@ void show_display(String header, String line1, String line2, String line3, Strin
         const auto time_now = now();
         if (!bluetoothConnected || time_now % 10 < 5) {
             if (symbolAvailable) {
-                display.drawBitmap((display.width() - SYM_WIDTH), 0, symbolsAPRS[symbol], SYM_WIDTH, SYM_HEIGHT, 1);
+                display.drawBitmap((display.width() - SYMBOL_WIDTH), 0, symbolsAPRS[symbol], SYMBOL_WIDTH, SYMBOL_HEIGHT, 1);
             }
         } else if (bluetoothConnected) {
             // TODO In this case, the text symbol stay displayed due to symbolAvailable false in menu_utils
-            display.drawBitmap((display.width() - SYM_WIDTH), 0, bluetoothSymbol, SYM_WIDTH, SYM_HEIGHT, 1);
+            display.drawBitmap((display.width() - SYMBOL_WIDTH), 0, bluetoothSymbol, SYMBOL_WIDTH, SYMBOL_HEIGHT, 1);
         }
     }
     
     display.display();
+    #endif
     delay(wait);
+}
+
+void startupScreen(uint8_t index, String version) {
+    String workingFreq = "    LoRa Freq [";
+    if (index == 0) {
+        workingFreq += "Eu]";
+    } else if (index == 1) {
+        workingFreq += "PL]";
+    } else if (index == 2) {
+        workingFreq += "UK]";
+    }
+    show_display(" LoRa APRS", "      (TRACKER)", workingFreq, "", "Richonguzman / CA2RXU", "      " + version, 4000);
+    #ifdef HAS_TFT
+    cleanTFT();
+    #endif
+    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "RichonGuzman (CA2RXU) --> LoRa APRS Tracker/Station");
+    logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "Version: %s", version);
 }

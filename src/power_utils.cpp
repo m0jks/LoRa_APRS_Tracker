@@ -2,12 +2,15 @@
 #include "power_utils.h"
 #include "notification_utils.h"
 #include "pins_config.h"
+#include "ble_utils.h"
 #include "logger.h"
 
 #ifndef TTGO_T_Beam_S3_SUPREME_V3
+#ifndef HELTEC_WIRELESS_TRACKER
 #define I2C_SDA 21
 #define I2C_SCL 22
 #define IRQ_PIN 35
+#endif
 #endif
 
 #ifdef TTGO_T_Beam_S3_SUPREME_V3
@@ -29,6 +32,7 @@ XPowersAXP2101 PMU;
 extern Configuration    Config;
 extern logging::Logger  logger;
 extern bool             disableGPS;
+extern uint32_t         batteryMeasurmentTime;
 
 bool    pmuInterrupt;
 float   lora32BatReadingCorr = 6.5; // % of correction to higher value to reflect the real battery voltage (adjust this to your needs)
@@ -40,20 +44,40 @@ namespace POWER_Utils {
     String batteryChargeDischargeCurrent = "";
 
     double getBatteryVoltage() {
-        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(OE5HWN_MeshCom)
-        int adc_value = analogRead(35);
-        double voltage = (adc_value * 3.3 ) / 4095.0;  // the battery voltage is divided by 2 with two 100kOhm resistors and connected to ADC1 Channel 7 -> pin 35
-        return (2 * (voltage + 0.1)) * (1 + (lora32BatReadingCorr/100)); // 2 x voltage divider/+0.1 because ESP32 nonlinearity ~100mV ADC offset/extra correction
+    #if defined(HAS_AXP192) || defined(HAS_AXP2101)
+        return (PMU.getBattVoltage() / 1000.0);
+    #else
+        #ifdef BATTERY_PIN
+            #ifdef ADC_CTRL
+                #ifdef HELTEC_WIRELESS_TRACKER
+                digitalWrite(ADC_CTRL, HIGH);
+                #endif
+                #ifdef HELTEC_V3_GPS
+                digitalWrite(ADC_CTRL, LOW);
+                #endif
+            #endif
+                int adc_value = analogRead(BATTERY_PIN);
+            #ifdef ADC_CTRL
+                #ifdef HELTEC_WIRELESS_TRACKER
+                digitalWrite(ADC_CTRL, LOW);
+                #endif
+                #ifdef HELTEC_V3_GPS
+                digitalWrite(ADC_CTRL, HIGH);
+                #endif
+                batteryMeasurmentTime = millis();
+            #endif
+                double voltage = (adc_value * 3.3 ) / 4095.0;
+            #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(OE5HWN_MeshCom)
+                return (2 * (voltage + 0.1)) * (1 + (lora32BatReadingCorr/100)); // (2 x 100k voltage divider) 2 x voltage divider/+0.1 because ESP32 nonlinearity ~100mV ADC offset/extra correction
+            #endif
+            #if defined(HELTEC_V3_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(ESP32_C3_DIY_LoRa_GPS)
+                double inputDivider = (1.0 / (390.0 + 100.0)) * 100.0;  // The voltage divider is a 390k + 100k resistor in series, 100k on the low side.
+                return (voltage / inputDivider) + 0.285; // Yes, this offset is excessive, but the ADC on the ESP32s3 is quite inaccurate and noisy. Adjust to own measurements.
+            #endif
+        #else
+            return 0.0;
         #endif
-        #if defined(HAS_AXP192) || defined(HAS_AXP2101)
-        return PMU.getBattVoltage() / 1000.0;
-        #endif
-        #if defined(HELTEC_V3_GPS) || defined(ESP32_C3_DIY_LoRa_GPS)
-        int adc_value = analogRead(BATTERY_PIN);
-        double voltage = (adc_value * 3.3) / 4095.0;
-        double inputDivider = (1.0 / (390.0 + 100.0)) * 100.0;  // The voltage divider is a 390k + 100k resistor in series, 100k on the low side.
-        return (voltage / inputDivider) + 0.3; // Yes, this offset is excessive, but the ADC on the ESP32s3 is quite inaccurate and noisy. Adjust to own measurements.
-        #endif
+    #endif
     }
 
     String getBatteryInfoVoltage() {
@@ -81,7 +105,7 @@ namespace POWER_Utils {
         }
 
     bool isCharging() {
-        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS)
+        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(TTGO_T_DECK_GPS)
         return 0;
         #endif
         #if defined(HAS_AXP192) || defined(HAS_AXP2101)
@@ -98,7 +122,7 @@ namespace POWER_Utils {
     }
 
     double getBatteryChargeDischargeCurrent() {
-        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS)
+        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(TTGO_T_DECK_GPS)
         return 0;
         #endif
         #ifdef HAS_AXP192
@@ -113,7 +137,7 @@ namespace POWER_Utils {
     }
 
     bool isBatteryConnected() {
-        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS)
+        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(TTGO_T_DECK_GPS)
         if(getBatteryVoltage() > 1.0) {
             return true;
         } else {
@@ -130,7 +154,7 @@ namespace POWER_Utils {
         if (!(rate_limit_check_battery++ % 60))
             BatteryIsConnected = isBatteryConnected();
         if (BatteryIsConnected) {
-            #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(TTGO_T_Beam_V1_0) || defined(TTGO_T_Beam_V1_0_SX1268) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom)
+            #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(TTGO_T_Beam_V1_0) || defined(TTGO_T_Beam_V1_0_SX1268) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(OE5HWN_MeshCom)  || defined(TTGO_T_DECK_GPS)
             batteryVoltage       = String(getBatteryVoltage(), 2);
             #endif
             #ifdef HAS_AXP2101
@@ -141,7 +165,11 @@ namespace POWER_Utils {
     }
 
     void batteryManager() {
+        #ifdef ADC_CTRL
+        if(batteryMeasurmentTime == 0 || (millis() - batteryMeasurmentTime) > 30 * 1000) obtainBatteryInfo();
+        #else
         obtainBatteryInfo();
+        #endif
         #if defined(HAS_AXP192) || defined(HAS_AXP2101)
         handleChargingLed();
         #endif
@@ -174,7 +202,7 @@ namespace POWER_Utils {
         #endif
         #if defined(TTGO_T_Beam_V1_2) || defined(TTGO_T_Beam_V1_2_SX1262)
         PMU.setALDO3Voltage(3300);
-        PMU.enableALDO3();
+        PMU.enableALDO3(); 
         #endif
         #if defined(TTGO_T_Beam_S3_SUPREME_V3)
         PMU.setALDO4Voltage(3300);
@@ -223,8 +251,48 @@ namespace POWER_Utils {
         #endif
     }
 
+    void externalPinSetup() {
+        if (Config.notification.buzzerActive && Config.notification.buzzerPinTone >= 0 && Config.notification.buzzerPinVcc >= 0) {
+            pinMode(Config.notification.buzzerPinTone, OUTPUT);
+            pinMode(Config.notification.buzzerPinVcc, OUTPUT);
+            if (Config.notification.bootUpBeep) NOTIFICATION_Utils::start();
+        } else if (Config.notification.buzzerActive && (Config.notification.buzzerPinTone < 0 || Config.notification.buzzerPinVcc < 0)) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "PINOUT", "Buzzer Pins bad/not defined");
+            while (1);
+        }
+
+        if (Config.notification.ledTx && Config.notification.ledTxPin >= 0) {
+            pinMode(Config.notification.ledTxPin, OUTPUT);
+        } else if (Config.notification.ledTx && Config.notification.ledTxPin < 0) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "PINOUT", "Led Tx Pin bad/not defined");
+            while (1);
+        }
+
+        if (Config.notification.ledMessage && Config.notification.ledMessagePin >= 0) {
+            pinMode(Config.notification.ledMessagePin, OUTPUT);
+        } else if (Config.notification.ledMessage && Config.notification.ledMessagePin < 0) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "PINOUT", "Led Message Pin bad/not defined");
+            while (1);
+        }
+
+        if (Config.notification.ledFlashlight && Config.notification.ledFlashlightPin >= 0) {
+            pinMode(Config.notification.ledFlashlightPin, OUTPUT);
+        } else if (Config.notification.ledFlashlight && Config.notification.ledFlashlightPin < 0) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "PINOUT", "Led Flashlight Pin bad/not defined");
+            while (1);
+        }
+
+        if (Config.ptt.active && Config.ptt.io_pin >= 0) {
+            pinMode(Config.ptt.io_pin, OUTPUT);
+            digitalWrite(Config.ptt.io_pin, Config.ptt.reverse ? HIGH : LOW);
+        } else if (Config.ptt.active && Config.ptt.io_pin < 0) {
+            logger.log(logging::LoggerLevel::LOGGER_LEVEL_WARN, "PINOUT", "PTT Pin bad/not defined");
+            while (1);
+        }
+    }
+
     bool begin(TwoWire &port) {
-        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS)
+        #if defined(TTGO_T_Beam_V0_7) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(TTGO_T_DECK_GPS)
         return true; // no powerManagment chip for this boards (only a few measure battery voltage).
         #endif
         #ifdef HAS_AXP192
@@ -295,7 +363,6 @@ namespace POWER_Utils {
     }
 
     void setup() {
-        Wire.end();
         #ifdef HAS_AXP192
         Wire.begin(SDA, SCL);
         if (begin(Wire)) {
@@ -334,7 +401,7 @@ namespace POWER_Utils {
             logger.log(logging::LoggerLevel::LOGGER_LEVEL_ERROR, "AXP2101", "init failed!");
         }
         #endif
-
+    
         #ifdef HAS_AXP2101
         activateLoRa();
         if (disableGPS) {
@@ -349,13 +416,50 @@ namespace POWER_Utils {
         PMU.setChargerConstantCurr(XPOWERS_AXP2101_CHG_CUR_800MA);
         PMU.setSysPowerDownVoltage(2600);
         #endif
-        #ifdef HELTEC_V3_GPS
-        pinMode(BATTERY_PIN, INPUT);    // This could or should be elsewhere, but this was my point of entry.
+
+        #ifdef BATTERY_PIN
+        pinMode(BATTERY_PIN, INPUT);
+        #endif
+
+        #ifdef VEXT_CTRL
+        pinMode(VEXT_CTRL,OUTPUT); // this is for GPS and TFT screen on Wireless_Tracker and only for Oled in Heltec V3
+        digitalWrite(VEXT_CTRL, HIGH);
+        #endif
+
+        #ifdef ADC_CTRL
+        pinMode(ADC_CTRL, OUTPUT);
+        #endif
+
+        #if defined(HELTEC_WIRELESS_TRACKER)
+        Wire.begin(BOARD_I2C_SDA, BOARD_I2C_SCL);
+        #endif
+
+        #if defined(TTGO_T_DECK_GPS)
+        pinMode(BOARD_POWERON, OUTPUT);
+        digitalWrite(BOARD_POWERON, HIGH);
+
+        pinMode(BOARD_SDCARD_CS, OUTPUT);
+        pinMode(RADIO_CS_PIN, OUTPUT);
+        pinMode(TFT_CS, OUTPUT);
+
+        digitalWrite(BOARD_SDCARD_CS, HIGH);
+        digitalWrite(RADIO_CS_PIN, HIGH);
+        digitalWrite(TFT_CS, HIGH);
+
+
+        pinMode(TrackBallCenter, INPUT_PULLUP);
+        pinMode(TrackBallUp, INPUT_PULLUP);
+        pinMode(TrackBallDown, INPUT_PULLUP);
+        pinMode(TrackBallLeft, INPUT_PULLUP);
+        pinMode(TrackBallRight, INPUT_PULLUP);
+
+        delay(500);
+        Wire.begin(BOARD_I2C_SDA, BOARD_I2C_SCL);
         #endif
     }
 
     void lowerCpuFrequency() {
-        #if defined(HAS_AXP192) || defined(HAS_AXP2101) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS)
+        #if defined(HAS_AXP192) || defined(HAS_AXP2101) || defined(ESP32_DIY_LoRa_GPS) || defined(TTGO_T_LORA32_V2_1_GPS) || defined(TTGO_T_LORA32_V2_1_TNC) || defined(ESP32_DIY_1W_LoRa_GPS) || defined(HELTEC_V3_GPS) || defined(OE5HWN_MeshCom) || defined(ESP32_C3_DIY_LoRa_GPS) || defined(HELTEC_WIRELESS_TRACKER) || defined(TTGO_T_DECK_GPS)
         if (setCpuFrequencyMhz(80)) {
             logger.log(logging::LoggerLevel::LOGGER_LEVEL_INFO, "Main", "CPU frequency set to 80MHz");
         } else {
@@ -368,6 +472,30 @@ namespace POWER_Utils {
         #if defined(HAS_AXP192) || defined(HAS_AXP2101)
         if (Config.notification.shutDownBeep) NOTIFICATION_Utils::shutDownBeep();
         PMU.shutdown();
+        #else
+
+        if (Config.bluetoothType==0) {
+            BLE_Utils::stop();
+        } else {
+            // turn off BT classic ???
+        }
+
+        #ifdef VEXT_CTRL
+        digitalWrite(VEXT_CTRL, LOW);
+        #endif
+
+        #ifdef ADC_CTRL
+        #ifdef HELTEC_WIRELESS_TRACKER
+        digitalWrite(ADC_CTRL, LOW);
+        #endif
+        #ifdef HELTEC_V3_GPS
+        digitalWrite(ADC_CTRL, HIGH);
+        #endif
+        #endif
+
+        long DEEP_SLEEP_TIME_SEC = 1296000; // 30 days
+        esp_sleep_enable_timer_wakeup(1000000ULL * DEEP_SLEEP_TIME_SEC);
+        esp_deep_sleep_start();
         #endif
     }
 
